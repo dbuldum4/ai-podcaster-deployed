@@ -59,7 +59,6 @@ async function speakText(text) {
 async function generate() {
     const geminiKey = window.CONFIG.GEMINI_KEY; 
   
-    // Use 'contents' instead of 'content' 
     const requestBody = {
       contents: [
         {
@@ -86,9 +85,7 @@ async function generate() {
     console.log(data);
   
     const textHolder = document.getElementById("paragraph");
-    // If you want to see the entire JSON as a string:
-    //textHolder.textContent = JSON.stringify(data);
-    // Otherwise, adapt how you display the response:
+
 
     const outputText = data.candidates[0].content.parts[0].text; 
 

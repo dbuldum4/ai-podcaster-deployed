@@ -587,24 +587,24 @@ body, html, #app, .main-container {
   overflow-y: auto;
 }
 
-/* Right Panel - Update positioning */
+/* Right Panel */
 .right-panel {
   width: 50%;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden;  /* Add this to contain the background */
-  background: #000;  /* Keep black background */
+  overflow: hidden;
+  background: #000;
 }
 
-/* Update the background container positioning */
+/* Background Container */
 .background--custom {
   width: 100%;
   height: 100%;
   position: absolute;
   overflow: hidden;
-  z-index: 0;       /* behind the text but above background */
+  z-index: 0;
   top: 0;
   left: 0;
   display: flex;
@@ -612,13 +612,13 @@ body, html, #app, .main-container {
   align-items: center;
 }
 
-/* Update canvas positioning and size */
+/* Canvas */
 canvas#canvas {
   z-index: 0;
   position: absolute;
-  min-width: 150%;  /* Make it larger than container */
-  min-height: 150%; /* Make it larger than container */
-  aspect-ratio: 1;  /* Maintain square aspect ratio */
+  min-width: 150%;
+  min-height: 150%;
+  aspect-ratio: 1;
   object-fit: cover;
   transform: none;
   --gradient-color-1: #F52DA5; 
@@ -628,15 +628,16 @@ canvas#canvas {
   --gradient-speed: 0.000002;
 }
 
+/* Right Panel Heading */
 .right-panel h1 {
   color: white;
   font-size: 2.5rem;
   position: relative;
-  z-index: 1; /* keep text above the gradient */
+  z-index: 1; 
   text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
 }
 
-/* Form Styling - Flat design */
+/* Form Styles */
 .podcast-form {
   max-width: 600px;
   width: 100%;
@@ -671,20 +672,20 @@ canvas#canvas {
   box-shadow: 0 0 0 2px rgba(30, 144, 255, 0.2);
 }
 
-/* Slider styling (optional, minimal example) */
+/* Slider styling */
 .slider-control {
   width: 100%;
   margin: 0.5rem 0;
 }
 
-/* Length Display Styling */
+/* Length Display */
 .length-display {
   color: white;
   font-size: 1rem;
   margin-top: 0.5rem;
 }
 
-/* Updated Radio Button Styles */
+/* Radio Buttons */
 .options-group {
   display: flex;
   flex-direction: column;
@@ -699,7 +700,6 @@ canvas#canvas {
   cursor: pointer;
 }
 
-/* Hide native radio input completely */
 input[type="radio"] {
   position: absolute;
   opacity: 0;
@@ -707,7 +707,6 @@ input[type="radio"] {
   width: 0;
 }
 
-/* Custom radio circle */
 .radio-custom {
   display: block;
   width: 20px;
@@ -718,18 +717,17 @@ input[type="radio"] {
   transition: all 0.2s ease;
 }
 
-/* Checked state */
 input[type="radio"]:checked + .radio-custom {
   border-color: #1e90ff;
   background: #1e90ff;
   box-shadow: inset 0 0 0 3px #1a1a1a;
 }
 
-/* Hover state */
 .option-label:hover .radio-custom {
   border-color: #666;
 }
 
+/* Generate Button */
 .generate-button {
   background: #1e90ff;
   color: white;
@@ -752,6 +750,7 @@ input[type="radio"]:checked + .radio-custom {
   cursor: not-allowed;
 }
 
+/* Audio Player */
 .audio-player {
   margin-top: 2rem;
   color: white;
@@ -772,6 +771,7 @@ input[type="radio"]:checked + .radio-custom {
   margin-top: 1rem;
 }
 
+/* Status Message */
 .status-message {
   color: #fff;
   margin-top: 1rem;
@@ -817,7 +817,7 @@ input[type="radio"]:checked + .radio-custom {
   }
 }
 
-/* Gradient Background */
+/* Gradient Animation */
 .gradient-background {
   background: linear-gradient(300deg, deepskyblue, darkviolet, blue);
   background-size: 180% 180%;
@@ -859,5 +859,28 @@ canvas#canvas {
   --gradient-color-3: #6A2FFF;  
   --gradient-color-4: #00093B;
   --gradient-speed: 0.000002;
+}
+
+/* Custom Scrollbar */
+/* For Chrome, Safari, and other WebKit-based browsers */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background-color);
+}
+::-webkit-scrollbar-thumb {
+  background-color: #444;
+  border-radius: 4px;
+  border: 2px solid var(--background-color);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #444 var(--background-color);
 }
 </style>

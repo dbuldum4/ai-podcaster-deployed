@@ -114,13 +114,32 @@
         <a :href="audioSrc" download="story.wav" class="download-btn">Download Audio</a>
       </div>
     </div>
+
+    <!-- Right Panel -->
+    <!-- Right Panel -->
     <div class="right-panel">
-      <div class="background--custom">
-        <canvas id="canvas" />
-      </div>
-      <h1>PocketCast</h1>
-    </div>
+
+<!-- Toggle Button with Material Symbols -->
+<button class="toggle-panel-btn" @click="togglePanel">
+  <span v-if="showScriptPanel" class="material-symbols-outlined">arrow_forward</span>
+  <span v-else class="material-symbols-outlined">arrow_back</span>
+</button>
+
+<!-- We now use v-show instead of v-if, so the canvas & heading stay mounted -->
+<div class="background--custom" v-show="!showScriptPanel">
+  <canvas id="canvas" />
+</div>
+<h1 v-show="!showScriptPanel">PocketCast</h1>
+
+<!-- Slide-in Script Panel -->
+<div class="script-panel" :class="{ visible: showScriptPanel }">
+  <h2>Podcast Script</h2>
+  <div class="script-text">
+    {{ scriptText }}
   </div>
+</div>
+</div>
+</div>
 </template>
 
 <script>
@@ -176,6 +195,12 @@ export default {
       // Audio URL received from TTS
       audioSrc: '',
 
+      // Store the final script text for display (with sentence breaks).
+      scriptText: '',
+
+      // Show/hide the script panel
+      showScriptPanel: false,
+
       // Correct quotaProjectId
       quotaProjectId: '287269128315', // Replace with your actual project ID
     };
@@ -194,6 +219,13 @@ export default {
     document.head.appendChild(script);
   },
   methods: {
+    /**
+     * Toggle the script panel in/out of view.
+     */
+    togglePanel() {
+      this.showScriptPanel = !this.showScriptPanel;
+    },
+
     /**
      * Refreshes the OAuth 2.0 access token using the refresh token.
      */
@@ -384,7 +416,7 @@ export default {
             name: this.selectedVoice.name,
             ssml_gender: this.selectedVoice.ssmlGender
           },
-          "output_gcs_uri": outputGcsUri
+          output_gcs_uri: outputGcsUri
         };
 
         const response = await fetch(
@@ -426,6 +458,7 @@ export default {
       this.loading = true;
       this.audioSrc = '';
       this.status = 'Generating podcast...';
+      this.showScriptPanel = false; // Hide panel until finished
 
       try {
         await this.deleteAllFiles();
@@ -499,9 +532,6 @@ Begin your script now:`;
           ]
         };
 
-        // Log the request body to the console
-        console.log("Sending request body to Gemini:", JSON.stringify(requestBody, null, 2));
-
         // Gemini API call
         const geminiResponse = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${this.geminiKey}`,
@@ -525,8 +555,19 @@ Begin your script now:`;
           throw new Error('Gemini did not return any content.');
         }
 
+        // Separate sentences with blank lines for readability
+        const separatedText = outputText
+          // Match punctuation followed by whitespace, then start of next sentence
+          .split(/(?<=[.?!])\s+(?=[A-Z])/)
+          .join('\n\n');
+
+        this.scriptText = separatedText;
+
         // Convert the generated text to speech
         await this.speakText(outputText);
+
+        // Once audio generation is complete, show the panel
+        this.showScriptPanel = true;
       } catch (error) {
         console.error("Generate request failed:", error);
         this.status = `Error: ${error.message}`;
@@ -598,6 +639,29 @@ body, html, #app, .main-container {
   background: #000;
 }
 
+/* Circle Toggle Button */
+.toggle-panel-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #333;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  z-index: 3; /* Ensure it's above the script panel */
+  font-size: 1.2rem;
+  transition: background 0.2s ease;
+}
+.toggle-panel-btn:hover {
+  background-color: #555;
+}
+
 /* Background Container */
 .background--custom {
   width: 100%;
@@ -634,7 +698,31 @@ canvas#canvas {
   font-size: 2.5rem;
   position: relative;
   z-index: 1; 
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  /* use display or visibility if you want it hidden with v-show */
+  transition: opacity 0.3s ease; /* optional smooth fade */
+}
+
+
+/* Slide-in Script Panel */
+.script-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #1a1a1a; /* or another dark color to match */
+  color: #fff;
+  padding: 20px;
+  box-sizing: border-box;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 2; /* Above gradient and heading, below toggle button */
+  overflow-y: auto;
+}
+
+.script-panel.visible {
+  transform: translateX(0);
 }
 
 /* Form Styles */
@@ -848,7 +936,6 @@ input[type="radio"]:checked + .radio-custom {
 
 /* Custom Gradient Background */
 .background--custom {
-  background-color: #FFFFFF;
   width: 100%;
   height: 100%;
   position: absolute;
@@ -856,6 +943,12 @@ input[type="radio"]:checked + .radio-custom {
   z-index: 0;
   top: 0;
   left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* You can also add a transition if you'd like a smooth fade:
+     transition: opacity 0.3s ease;
+  */
 }
 
 canvas#canvas {
@@ -892,5 +985,14 @@ canvas#canvas {
 * {
   scrollbar-width: thin;
   scrollbar-color: #444 var(--background-color);
+}
+
+.script-text {
+  white-space: pre-wrap;
+}
+
+.material-symbols-outlined {
+  font-size: 24px; /* Adjust size as needed */
+  vertical-align: middle;
 }
 </style>

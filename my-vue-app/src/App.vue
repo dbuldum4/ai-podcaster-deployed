@@ -4,40 +4,65 @@
 
     <!-- Podcast Form -->
     <form @submit.prevent="generate" class="podcast-form">
-      <!-- Topic Input -->
-      <div class="form-group mb-3">
-        <label for="topic" class="form-label">Podcast Topic</label>
-        <input
-          id="topic"
-          type="text"
-          v-model="podcastTopic"
-          class="form-control"
-          placeholder="Enter a topic (e.g. 'Integration By Parts')"
-          required
-        />
+      <!-- Enter a Topic Section -->
+      <div class="form-section">
+        <h2 class="section-title">Enter a Topic</h2>
+        <div class="form-group">
+          <input
+            id="topic"
+            type="text"
+            v-model="podcastTopic"
+            class="form-control"
+            placeholder="e.g., 'Mindfulness Meditation'"
+            required
+          />
+        </div>
       </div>
 
-      <!-- Length Selector -->
-      <div class="form-group mb-3 length-selector">
-        <label class="me-3">
-          <input type="radio" v-model="podcastLength" value="short" />
-          Short
-        </label>
-        <label class="me-3">
-          <input type="radio" v-model="podcastLength" value="medium" />
-          Medium
-        </label>
-        <label>
-          <input type="radio" v-model="podcastLength" value="long" />
-          Long
-        </label>
+      <!-- Choose a Length Section -->
+      <div class="form-section">
+        <h2 class="section-title">Choose a Length</h2>
+        <div class="form-group length-selector">
+          <label class="length-option">
+            <input type="radio" v-model="podcastLength" value="short" />
+            <span class="radio-custom"></span>
+            Short
+          </label>
+          <label class="length-option">
+            <input type="radio" v-model="podcastLength" value="medium" />
+            <span class="radio-custom"></span>
+            Medium
+          </label>
+          <label class="length-option">
+            <input type="radio" v-model="podcastLength" value="long" />
+            <span class="radio-custom"></span>
+            Long
+          </label>
+        </div>
+      </div>
+
+      <!-- Choose a Voice Section -->
+      <div class="form-section">
+        <h2 class="section-title">Choose a Voice</h2>
+        <div class="form-group">
+          <select v-model="selectedVoice" class="form-control" required>
+            <option disabled value="">-- Select a Voice --</option>
+            <option
+              v-for="voice in voices"
+              :key="voice.name"
+              :value="voice"
+            >
+              {{ voice.displayName }} ({{ voice.languageCode }}) - {{ voice.ssmlGender }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Generate Button -->
       <button
         type="submit"
         :disabled="loading"
-        class="button generate-button mb-3"
+        class="button generate-button"
         aria-label="Generate Audio Story"
       >
         {{ loading ? 'Generating...' : 'Generate' }}
@@ -69,13 +94,24 @@ export default {
       geminiKey: CONFIG.GEMINI_KEY,
       ttsKey: CONFIG.TTS_KEY,
       quotaProjectId: 'casehack', // Google Cloud project ID
-      audioSrc: '',           // Source URL for the audio player
-      loading: false,         // Loading state for button and processes
-      status: '',             // Status messages for user feedback
+      audioSrc: '',               // Source URL for the audio player
+      loading: false,             // Loading state for button and processes
+      status: '',                 // Status messages for user feedback
 
       // Podcast form data
       podcastTopic: '',
-      podcastLength: 'medium',  // Default to "medium"
+      podcastLength: 'medium',    // Default to "medium"
+      selectedVoice: null,        // User-selected voice
+
+      // List of available voices with accents and genders
+      voices: [
+        { name: 'en-US-Journey-D', displayName: 'Journey D', languageCode: 'en-US', ssmlGender: 'MALE' },
+        { name: 'en-US-Journey-F', displayName: 'Journey F', languageCode: 'en-US', ssmlGender: 'FEMALE' },
+        { name: 'en-GB-Journey-D', displayName: 'Journey D', languageCode: 'en-GB', ssmlGender: 'MALE' },
+        { name: 'en-GB-Journey-O', displayName: 'Journey O', languageCode: 'en-GB', ssmlGender: 'FEMALE' },
+        { name: 'en-AU-Journey-D', displayName: 'Journey D', languageCode: 'en-AU', ssmlGender: 'MALE' },
+        { name: 'en-AU-Journey-F', displayName: 'Journey F', languageCode: 'en-AU', ssmlGender: 'FEMALE' },
+      ],
 
       // Used internally to send to Gemini
       userPrompt: '',
@@ -83,6 +119,10 @@ export default {
   },
   mounted() {
     // No need to check window.CONFIG anymore
+    if (!this.geminiKey || !this.ttsKey) {
+      console.error('API keys are not defined. Please set them in config.js or environment variables.');
+      this.status = 'Error: API keys are not defined.';
+    }
   },
   methods: {
     /**
@@ -94,7 +134,6 @@ export default {
       
       try {
         this.status = 'Deleting all files...';
-
         const listResponse = await fetch(`https://storage.googleapis.com/storage/v1/b/${bucketName}/o`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`
@@ -124,7 +163,6 @@ export default {
               }
             }
           );
-
           if (!deleteResponse.ok) {
             const errorText = await deleteResponse.text();
             console.error(`Failed to delete ${item.name}: ${errorText}`);
@@ -148,7 +186,6 @@ export default {
 
       while (true) {
         await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-
         const pollUrl = `https://texttospeech.googleapis.com/v1/${operationName}`;
         const pollResp = await fetch(pollUrl, {
           method: "GET",
@@ -184,7 +221,6 @@ export default {
     async getFileFromGCS(objectName) {
       const accessToken = this.ttsKey;
       const bucketName = "podcaster-bucket";
-
       const url = `https://storage.googleapis.com/${bucketName}/${objectName}`;
 
       try {
@@ -228,15 +264,15 @@ export default {
           audio_encoding: "LINEAR16"
         },
         voice: {
-          language_code: "en-us",
-          name: "en-us-Standard-A"
+          language_code: this.selectedVoice.languageCode,
+          name: this.selectedVoice.name,
+          ssml_gender: this.selectedVoice.ssmlGender
         },
         "output_gcs_uri": outputGcsUri
       };
 
       try {
         this.status = 'Generating audio...';
-
         const response = await fetch(
           "https://texttospeech.googleapis.com/v1beta1/projects/287269128315/locations/global:synthesizeLongAudio",
           {
@@ -284,6 +320,11 @@ export default {
         // Validate form input
         if (!this.podcastTopic.trim()) {
           throw new Error("Please enter a topic for your podcast.");
+        }
+
+        // Validate voice selection
+        if (!this.selectedVoice) {
+          throw new Error("Please select a voice for your podcast.");
         }
 
         // Build a user prompt based on topic and chosen length
@@ -361,7 +402,8 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
+  justify-content: center;
+  align-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -369,18 +411,19 @@ body {
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  margin-bottom: 1.5rem;
 }
 
 button {
   border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
+  padding: 0.8em 1.5em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: background-color 0.3s, border-color 0.25s;
 }
 
 button:hover {
@@ -393,12 +436,13 @@ button:focus-visible {
 }
 
 #app {
-  max-width: 1280px;
+  max-width: 600px;
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
 }
 
+/* Light-mode overrides */
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -418,43 +462,112 @@ button:focus-visible {
   width: 100%;
 }
 
+/* Podcast Form Styling */
 .podcast-form {
+  background-color: #2c2c2c; /* Dark background */
+  color: #fff;              /* White text */
+  padding: 1.5rem 2rem;     /* Reduced top and bottom padding */
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
-  text-align: left;
-  max-width: 600px;
-  margin: 0 auto 2rem auto;
-  background-color: #f9f9f9; /* Light background for form */
-  padding: 1.5rem;
-  border-radius: 8px;
 }
 
-.form-group {
-  margin-bottom: 1rem;
+/* Form Sections */
+.form-section {
+  margin-bottom: 1.5rem;
 }
 
-.form-label {
-  display: block;
-  margin-bottom: 0.5rem;
+/* Section Titles */
+.section-title {
+  font-size: 1.2em;
+  margin-bottom: 0.8rem;
   font-weight: 600;
 }
 
-.form-control {
-  width: 100%;
-  padding: 0.6rem;
-  font-size: 1rem;
-  border-radius: 4px;
-  border: 1px solid #ccc;
+/* Form Group */
+.form-group {
+  display: flex;
+  flex-direction: column;
 }
 
-.length-selector label {
-  font-weight: 500;
-  margin-right: 1rem;
+/* Input Field */
+.form-control {
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background-color: #3a3a3a;
+  color: #fff;
+  transition: border-color 0.3s, background-color 0.3s;
+}
+
+.form-control:focus {
+  border-color: #28a745;
+  outline: none;
+  background-color: #4a4a4a;
+}
+
+/* Length Selector */
+.length-selector {
+  display: flex;
+  flex-direction: column;
+}
+
+.length-option {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.6rem;
+  cursor: pointer;
+  position: relative;
+  padding-left: 1.5rem;
+  user-select: none;
+  font-size: 1rem;
+}
+
+.length-option:last-child {
+  margin-bottom: 0;
+}
+
+.length-option input[type="radio"] {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
   cursor: pointer;
 }
 
+.length-option .radio-custom {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 16px;
+  width: 16px;
+  background-color: #555;
+  border-radius: 50%;
+  transition: background-color 0.3s, border 0.3s;
+}
+
+.length-option input[type="radio"]:checked ~ .radio-custom {
+  background-color: #28a745;
+  border: 2px solid #fff;
+}
+
+.length-option:hover .radio-custom {
+  background-color: #666;
+}
+
+/* Generate Button */
 .generate-button {
   background-color: #28a745; /* Green */
   color: white;
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 1.1em;
+  border: none;
+  border-radius: 6px;
+  transition: background-color 0.3s;
 }
 
 .generate-button:hover:not(:disabled) {
@@ -466,20 +579,29 @@ button:focus-visible {
   cursor: not-allowed;
 }
 
+/* Status Message */
 .status-message {
-  margin-top: 20px;
+  margin-top: 1rem;
   font-weight: bold;
-  color: #333;
+  color: #fff;
 }
 
+/* Audio Player */
 .audio-player {
-  margin-top: 20px;
+  margin-top: 2rem;
+  background-color: #2c2c2c;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.audio-player h2 {
+  margin-bottom: 1rem;
 }
 
 .download-btn {
   display: inline-block;
-  margin-top: 10px;
-  padding: 8px 16px;
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
   background-color: #007bff; /* Blue */
   color: white;
   text-decoration: none;
@@ -491,11 +613,19 @@ button:focus-visible {
   background-color: #0056b3; /* Darker Blue */
 }
 
-.mb-3 {
-  margin-bottom: 1rem;
-}
+/* Responsive Adjustments */
+@media (max-width: 600px) {
+  .podcast-form {
+    padding: 1.5rem;
+  }
 
-.me-3 {
-  margin-right: 1rem;
+  .generate-button {
+    font-size: 1em;
+    padding: 0.6rem;
+  }
+
+  .download-btn {
+    padding: 0.5rem 1rem;
+  }
 }
 </style>

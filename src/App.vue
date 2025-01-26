@@ -516,6 +516,7 @@ Follow these guidelines to create the podcast script:
 
 6. Audience Engagement:
    - Write as if you're speaking directly to a listener.
+   - If you refer to yourself, refer to yourself as Gemini. 
    - Use rhetorical questions or thought-provoking statements to maintain interest.
 
 Remember, do not include any sound effects, introduction music cues, or non-verbal elements. The script should consist purely of spoken content. Another reminder to be detailed, fully explain each point, and take your time. Give the user a full lecture!

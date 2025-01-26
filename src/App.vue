@@ -462,33 +462,30 @@ Follow these guidelines to create the podcast script:
 
 1. Structure:
    - Create an engaging opening that introduces the topic.
-   - Divide the content into 3-5 main points or sections.
+   - Divide the content into main points or sections that are easy to follow. 
    - Conclude with a summary and, if appropriate, a call-to-action.
 
 2. Timing:
-   - The script should be designed to fill exactly podcastLength minutes when read aloud at a natural pace.
-   - Aim for approximately 250 words per minute of podcast length. Do not underestimate the length. 
-
+   - The script should be designed to fill exactly ${this.podcastLength} minutes when read aloud at a natural pace. This part is very important! With a longer length in minutes, make sure you really go in depth and technical with it; the user is very interested in the topic. It's better to have a podcast too long than too short. 
 3. Persona Style:
    - Adapt your writing style to match the personaStyle specified.
-   - Consider the vocabulary, tone, and pacing that would be characteristic of this style.
    - Maintain consistency in the chosen persona throughout the script.
 
 4. Content:
-   - Research and present accurate, engaging information about the podcastTopic.
+   - Research and present accurate, engaging information about the podcastTopic, ${this.podcastTopic}.
    - Include relevant facts, anecdotes, or examples to illustrate your points.
    - If appropriate, address potential questions or counterarguments related to the topic.
 
 5. Language and Tone:
-   - Use clear, conversational language suitable for audio content.
-   - Avoid complex jargon unless it's essential to the topic and explain any technical terms.
+   - Use clear language suitable for audio content.
+   - Explain technical terms.
    - Incorporate rhetorical devices like analogies or metaphors to make the content more engaging.
 
 6. Audience Engagement:
    - Write as if you're speaking directly to a listener.
    - Use rhetorical questions or thought-provoking statements to maintain interest.
 
-Remember, do not include any sound effects, introduction music cues, or non-verbal elements. The script should consist purely of spoken content.
+Remember, do not include any sound effects, introduction music cues, or non-verbal elements. The script should consist purely of spoken content. Another reminder to be detailed, fully explain each point, and take your time. Give the user a full lecture!
 
 Output your script directly, without any additional text, placeholders, or reference lines. The entire output should be the script itself, ready to be read aloud.
 
@@ -501,6 +498,9 @@ Begin your script now:`;
             }
           ]
         };
+
+        // Log the request body to the console
+        console.log("Sending request body to Gemini:", JSON.stringify(requestBody, null, 2));
 
         // Gemini API call
         const geminiResponse = await fetch(

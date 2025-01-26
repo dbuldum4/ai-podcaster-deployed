@@ -12,7 +12,7 @@
           type="text"
           v-model="podcastTopic"
           class="form-control"
-          placeholder="Enter a topic (e.g. 'Mindfulness Meditation')"
+          placeholder="Enter a topic (e.g. 'Integration By Parts')"
           required
         />
       </div>
@@ -60,12 +60,14 @@
 </template>
 
 <script>
+import CONFIG from './config'; // Ensure this path is correct
+
 export default {
   name: 'App',
   data() {
     return {
-      geminiKey: '',          // Gemini API Key
-      ttsKey: '',             // TTS API Key
+      geminiKey: CONFIG.GEMINI_KEY,
+      ttsKey: CONFIG.TTS_KEY,
       quotaProjectId: 'casehack', // Google Cloud project ID
       audioSrc: '',           // Source URL for the audio player
       loading: false,         // Loading state for button and processes
@@ -80,12 +82,7 @@ export default {
     };
   },
   mounted() {
-    if (window.CONFIG) {
-      this.geminiKey = window.CONFIG.GEMINI_KEY;
-      this.ttsKey = window.CONFIG.TTS_KEY;
-    } else {
-      console.error('API keys are not defined. Please set them in config.js or environment variables.');
-    }
+    // No need to check window.CONFIG anymore
   },
   methods: {
     /**
@@ -278,7 +275,7 @@ export default {
     async generate() {
       this.loading = true;
       this.audioSrc = '';
-      this.status = 'Generating story...';
+      this.status = 'Generating podcast...';
 
       try {
         // Delete existing files in the bucket to keep it clean
@@ -290,7 +287,7 @@ export default {
         }
 
         // Build a user prompt based on topic and chosen length
-        this.userPrompt = `Create a ${this.podcastLength} podcast script about: ${this.podcastTopic}`;
+        this.userPrompt = `Create a ${this.podcastLength} podcast script about: ${this.podcastTopic}. You should only output the podcast, no other extra text. There should be no sound effects, or introduction music queues. Only content and text. I also want it in the style of Donald Trump.`;
 
         // Prepare request body for Gemini
         const requestBody = {

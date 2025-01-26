@@ -1,108 +1,124 @@
 <template>
-  <div id="app" class="container">
-    <h1>AI Podcaster</h1>
-
-    <!-- Podcast Form -->
-    <form @submit.prevent="generate" class="podcast-form">
-      <!-- Enter a Topic Section -->
-      <div class="form-section">
-        <h2 class="section-title">Enter a Topic</h2>
-        <div class="form-group">
-          <input
-            id="topic"
-            type="text"
-            v-model="podcastTopic"
-            class="form-control"
-            placeholder="e.g., 'Mindfulness Meditation'"
-            required
-          />
+  <div class="main-container">
+    <div class="left-panel">
+      <!-- Podcast Form -->
+      <form @submit.prevent="generate" class="podcast-form">
+        <!-- Enter a Topic Section -->
+        <div class="form-section">
+          <h2 class="section-title">Enter a Topic</h2>
+          <div class="form-group">
+            <input
+              id="topic"
+              type="text"
+              v-model="podcastTopic"
+              class="form-control"
+              placeholder="e.g., 'Mindfulness Meditation'"
+              required
+            />
+          </div>
         </div>
+
+        <!-- Choose a Length Section (Slider) -->
+        <div class="form-section">
+          <h2 class="section-title">Choose Length (Minutes)</h2>
+          <div class="form-group">
+            <input
+              type="range"
+              min="1"
+              max="30"
+              v-model="podcastLength"
+              class="slider-control"
+            />
+            <span class="length-display">{{ podcastLength }} minute(s)</span>
+          </div>
+        </div>
+
+        <!-- Choose a Persona Section -->
+        <div class="form-section">
+          <h2 class="section-title">Choose a Persona</h2>
+          <div class="form-group options-group">
+            <label class="option-label">
+              <input type="radio" v-model="selectedPersona" value="trump" />
+              <span class="radio-custom"></span>
+              Trump
+            </label>
+            <label class="option-label">
+              <input type="radio" v-model="selectedPersona" value="professor" />
+              <span class="radio-custom"></span>
+              Professor
+            </label>
+            <label class="option-label">
+              <input type="radio" v-model="selectedPersona" value="best_friend" />
+              <span class="radio-custom"></span>
+              Best Friend
+            </label>
+            <!-- New Personas Added Below -->
+            <label class="option-label">
+              <input type="radio" v-model="selectedPersona" value="comedian" />
+              <span class="radio-custom"></span>
+              Comedian
+            </label>
+            <label class="option-label">
+              <input type="radio" v-model="selectedPersona" value="journalist" />
+              <span class="radio-custom"></span>
+              Journalist
+            </label>
+            <label class="option-label">
+              <input type="radio" v-model="selectedPersona" value="tutor" />
+              <span class="radio-custom"></span>
+              Tutor
+            </label>
+            <!-- End of New Personas -->
+          </div>
+        </div>
+
+        <!-- Choose a Voice Section -->
+        <div class="form-section">
+          <h2 class="section-title">Choose a Voice</h2>
+          <div class="form-group">
+            <select v-model="selectedVoice" class="form-control" required>
+              <option disabled value="">-- Select a Voice --</option>
+              <option
+                v-for="voice in voices"
+                :key="voice.name"
+                :value="voice"
+              >
+                {{ voice.displayName }} ({{ voice.languageCode }}) - {{ voice.ssmlGender }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button
+          type="submit"
+          :disabled="loading"
+          class="button generate-button"
+          aria-label="Generate Audio Story"
+        >
+          <span v-if="loading" class="spinner"></span>
+          {{ loading ? 'Generating...' : 'Generate' }}
+        </button>
+      </form>
+
+      <!-- Status Message -->
+      <div v-if="status" class="status-message">
+        {{ status }}
       </div>
 
-      <!-- Choose a Length Section -->
-      <div class="form-section">
-        <h2 class="section-title">Choose a Length</h2>
-        <div class="form-group options-group">
-          <label class="option-label">
-            <input type="radio" v-model="podcastLength" value="short" />
-            <span class="radio-custom"></span>
-            Short
-          </label>
-          <label class="option-label">
-            <input type="radio" v-model="podcastLength" value="medium" />
-            <span class="radio-custom"></span>
-            Medium
-          </label>
-          <label class="option-label">
-            <input type="radio" v-model="podcastLength" value="long" />
-            <span class="radio-custom"></span>
-            Long
-          </label>
-        </div>
+      <!-- Audio Player -->
+      <div v-if="audioSrc" class="audio-player">
+        <h2>Your Podcast Audio</h2>
+        <audio :src="audioSrc" controls></audio>
+        <br />
+        <a :href="audioSrc" download="story.wav" class="download-btn">Download Audio</a>
       </div>
-
-      <!-- Choose a Persona Section -->
-      <div class="form-section">
-        <h2 class="section-title">Choose a Persona</h2>
-        <div class="form-group options-group">
-          <label class="option-label">
-            <input type="radio" v-model="selectedPersona" value="trump" />
-            <span class="radio-custom"></span>
-            Trump
-          </label>
-          <label class="option-label">
-            <input type="radio" v-model="selectedPersona" value="professor" />
-            <span class="radio-custom"></span>
-            Professor
-          </label>
-          <label class="option-label">
-            <input type="radio" v-model="selectedPersona" value="best_friend" />
-            <span class="radio-custom"></span>
-            Best Friend
-          </label>
-        </div>
-      </div>
-
-      <!-- Choose a Voice Section -->
-      <div class="form-section">
-        <h2 class="section-title">Choose a Voice</h2>
-        <div class="form-group">
-          <select v-model="selectedVoice" class="form-control" required>
-            <option disabled value="">-- Select a Voice --</option>
-            <option
-              v-for="voice in voices"
-              :key="voice.name"
-              :value="voice"
-            >
-              {{ voice.displayName }} ({{ voice.languageCode }}) - {{ voice.ssmlGender }}
-            </option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Generate Button -->
-      <button
-        type="submit"
-        :disabled="loading"
-        class="button generate-button"
-        aria-label="Generate Audio Story"
-      >
-        <span v-if="loading" class="spinner"></span>
-        {{ loading ? 'Generating...' : 'Generate' }}
-      </button>
-    </form>
-
-    <!-- Status Message -->
-    <div v-if="status" class="status-message">
-      {{ status }}
     </div>
-
-    <!-- Audio Player -->
-    <div v-if="audioSrc" class="audio-player">
-      <h2>Your Podcast Audio</h2>
-      <audio :src="audioSrc" controls></audio>
-      <br />
-      <a :href="audioSrc" download="story.wav" class="download-btn">Download Audio</a>
+    <div class="right-panel">
+      <div class="background--custom">
+        <canvas id="canvas" />
+      </div>
+      <h1>AI Podcaster</h1>
     </div>
   </div>
 </template>
@@ -126,15 +142,18 @@ export default {
 
       // Podcast form data
       podcastTopic: '',
-      podcastLength: 'medium',    // Default to "medium"
-      selectedVoice: null,        // User-selected voice
-      selectedPersona: 'trump',   // Default selection
+      podcastLength: 10,         // Default length in minutes
+      selectedVoice: null,       // User-selected voice
+      selectedPersona: 'trump',  // Default selection
 
       // Persona Styles Mapping
       personaStyles: {
         trump: "Donald Trump",
         professor: "a knowledgeable professor",
-        best_friend: "a friendly best friend"
+        best_friend: "a friendly best friend",
+        comedian: "a witty comedian",
+        journalist: "a professional journalist",
+        tutor: "an experienced tutor",
       },
 
       // Define your bucket name here
@@ -164,6 +183,15 @@ export default {
   mounted() {
     // Initialize by refreshing the access token
     this.refreshAccessToken();
+    
+    // Add script dynamically
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/gh/greentfrapp/pocoloco@minigl/minigl.js';
+    script.onload = () => {
+      const gradient = new Gradient();
+      gradient.initGradient("#canvas");
+    };
+    document.head.appendChild(script);
   },
   methods: {
     /**
@@ -400,30 +428,72 @@ export default {
       this.status = 'Generating podcast...';
 
       try {
-        // Delete existing files in the bucket to keep it clean
         await this.deleteAllFiles();
 
-        // Validate form input
         if (!this.podcastTopic.trim()) {
           throw new Error("Please enter a topic for your podcast.");
         }
 
-        // Validate voice selection
         if (!this.selectedVoice) {
           throw new Error("Please select a voice for your podcast.");
         }
 
-        // Validate persona selection
         if (!this.selectedPersona) {
           throw new Error("Please select a persona for your podcast.");
         }
 
-        // Build a user prompt based on topic, chosen length, and selected persona
         this.status = 'Generating content with Gemini...';
-        const personaStyle = this.personaStyles[this.selectedPersona] || "Donald Trump"; // Fallback to Trump
-        const userPrompt = `Create a ${this.podcastLength} podcast script about: ${this.podcastTopic}. You should only output the podcast, no other extra text. There should be no sound effects, or introduction music queues. Only content and text. I also want it in the style of ${personaStyle}.`;
+        const personaStyle = this.personaStyles[this.selectedPersona] || "Donald Trump";
+        const userPrompt = `You are tasked with creating a podcast script about a given topic. The script should be designed to fill a specific duration and adopt a particular persona style. Here are the details:
 
-        // Prepare request body for Gemini
+<podcastLength>
+${this.podcastLength}
+</podcastLength>
+
+<podcastTopic>
+${this.podcastTopic}
+</podcastTopic>
+
+<personaStyle>
+${personaStyle}
+</personaStyle>
+
+Follow these guidelines to create the podcast script:
+
+1. Structure:
+   - Create an engaging opening that introduces the topic.
+   - Divide the content into 3-5 main points or sections.
+   - Conclude with a summary and, if appropriate, a call-to-action.
+
+2. Timing:
+   - The script should be designed to fill exactly podcastLength minutes when read aloud at a natural pace.
+   - Aim for approximately 250 words per minute of podcast length. Do not underestimate the length. 
+
+3. Persona Style:
+   - Adapt your writing style to match the personaStyle specified.
+   - Consider the vocabulary, tone, and pacing that would be characteristic of this style.
+   - Maintain consistency in the chosen persona throughout the script.
+
+4. Content:
+   - Research and present accurate, engaging information about the podcastTopic.
+   - Include relevant facts, anecdotes, or examples to illustrate your points.
+   - If appropriate, address potential questions or counterarguments related to the topic.
+
+5. Language and Tone:
+   - Use clear, conversational language suitable for audio content.
+   - Avoid complex jargon unless it's essential to the topic and explain any technical terms.
+   - Incorporate rhetorical devices like analogies or metaphors to make the content more engaging.
+
+6. Audience Engagement:
+   - Write as if you're speaking directly to a listener.
+   - Use rhetorical questions or thought-provoking statements to maintain interest.
+
+Remember, do not include any sound effects, introduction music cues, or non-verbal elements. The script should consist purely of spoken content.
+
+Output your script directly, without any additional text, placeholders, or reference lines. The entire output should be the script itself, ready to be read aloud.
+
+Begin your script now:`;
+
         const requestBody = {
           contents: [
             {
@@ -469,10 +539,12 @@ export default {
 </script>
 
 <style>
-/* General Styles */
+/* Import Inter Font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+/* Updated Color Variables */
 :root {
   --background-color: #121212;
-  --form-background: #1e1e1e;
   --text-color: #ffffff;
   --input-background: #2c2c2c;
   --input-border: #444444;
@@ -482,264 +554,310 @@ export default {
   --option-background: #555555;
   --option-hover: #666666;
   --option-checked: #1e90ff;
-  --spinner-border: rgba(255, 255, 255, 0.3);
-  --spinner-color: #ffffff;
   --status-color: #ffffff;
   --download-button-background: #28a745;
   --download-button-hover: #218838;
 }
 
+/* Reset and Layout */
 * {
   box-sizing: border-box;
 }
 
-body {
+body, html, #app, .main-container {
   margin: 0;
   padding: 0;
-  background-color: var(--background-color);
-  color: var(--text-color);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  height: 100%;
+  font-family: 'Inter', sans-serif;
+}
+
+.main-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+/* Left Panel - Simplified */
+.left-panel {
+  width: 50%;
+  background: #1a1a1a;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Right Panel - Update positioning */
+.right-panel {
+  width: 50%;
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  overflow: hidden;  /* Add this to contain the background */
+  background: #000;  /* Keep black background */
 }
 
-a {
-  font-weight: 500;
-  color: #1e90ff; /* DodgerBlue */
-  text-decoration: none;
-}
-
-a:hover {
-  color: #63b3ed; /* Lighter blue on hover */
-}
-
-h1 {
-  font-size: 2.5em;
-  margin-bottom: 0.5rem;
-  color: var(--text-color);
-}
-
-button {
-  border-radius: 4px;
-  border: none;
-  padding: 0.75em 1.5em;
-  font-size: 1em;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s, opacity 0.3s;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Spinner Animation */
-.spinner {
-  border: 4px solid var(--spinner-border);
-  border-top: 4px solid var(--spinner-color);
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  animation: spin 1s linear infinite;
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 8px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-</style>
-
-<style scoped>
-/* Container */
-.container {
+/* Update the background container positioning */
+.background--custom {
   width: 100%;
-  max-width: 600px;
-  padding: 2rem;
-  box-sizing: border-box;
-  text-align: center;
+  height: 100%;
+  position: absolute;
+  overflow: hidden;
+  z-index: 0;       /* behind the text but above background */
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* Podcast Form Styling */
+/* Update canvas positioning and size */
+canvas#canvas {
+  z-index: 0;
+  position: absolute;
+  min-width: 150%;  /* Make it larger than container */
+  min-height: 150%; /* Make it larger than container */
+  aspect-ratio: 1;  /* Maintain square aspect ratio */
+  object-fit: cover;
+  transform: none;
+  --gradient-color-1: #F52DA5; 
+  --gradient-color-2: #2626FF; 
+  --gradient-color-3: #6A2FFF;  
+  --gradient-color-4: #00093B;
+  --gradient-speed: 0.000002;
+}
+
+.right-panel h1 {
+  color: white;
+  font-size: 2.5rem;
+  position: relative;
+  z-index: 1; /* keep text above the gradient */
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+}
+
+/* Form Styling - Flat design */
 .podcast-form {
-  background-color: var(--form-background); /* Dark form background */
-  color: var(--text-color);              /* White text */
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.form-section {
   margin-bottom: 2rem;
 }
 
-/* Form Sections */
-.form-section {
-  margin-bottom: 1.5rem;
-  text-align: left;
-}
-
-/* Section Titles */
 .section-title {
-  font-size: 1.2em;
-  margin-bottom: 0.5rem;
-  border-bottom: 2px solid #333333;
-  padding-bottom: 0.3rem;
+  color: #fff;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
 }
 
-/* Form Group */
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Input Field */
 .form-control {
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  border-radius: 4px;
-  border: 1px solid var(--input-border);
-  background-color: var(--input-background);
-  color: var(--text-color);
-  transition: border-color 0.3s, background-color 0.3s;
-}
-
-.form-control:focus {
-  border-color: var(--button-background); /* DodgerBlue focus */
-  outline: none;
-  background-color: #3a3a3a;
-}
-
-/* Options Group (Radio Buttons) */
-.options-group {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Option Label */
-.option-label {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.6rem;
-  cursor: pointer;
-  position: relative;
-  padding-left: 2rem;
-  user-select: none;
-  font-size: 1rem;
-}
-
-.option-label:last-child {
-  margin-bottom: 0;
-}
-
-/* Radio Input */
-.option-label input[type="radio"] {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  cursor: pointer;
-}
-
-/* Custom Radio Button */
-.radio-custom {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 18px;
-  width: 18px;
-  background-color: var(--option-background);
-  border-radius: 50%;
-  transition: background-color 0.3s, border 0.3s;
-}
-
-/* Checked Radio */
-.option-label input[type="radio"]:checked ~ .radio-custom {
-  background-color: var(--option-checked);
-  border: 2px solid var(--text-color);
-}
-
-/* Hover Radio */
-.option-label:hover .radio-custom {
-  background-color: var(--option-hover);
-}
-
-/* Generate Button */
-.generate-button {
-  background-color: var(--button-background); /* DodgerBlue */
-  color: var(--text-color);
   width: 100%;
-  padding: 0.75rem 1rem;
-  font-size: 1.1em;
-  border: none;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.generate-button:hover:not(:disabled) {
-  background-color: var(--button-hover); /* Slightly darker blue */
-}
-
-.generate-button:disabled {
-  background-color: var(--button-disabled); /* Gray */
-  cursor: not-allowed;
-}
-
-/* Status Message */
-.status-message {
-  margin-top: 1rem;
-  font-weight: bold;
-  color: var(--status-color);
-}
-
-/* Audio Player */
-.audio-player {
-  margin-top: 2rem;
-  background-color: var(--form-background);
-  padding: 1.5rem;
-  border-radius: 8px;
-  color: var(--text-color);
-}
-
-.audio-player h2 {
+  padding: 12px 16px;
+  background: #2d2d2d;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  color: white;
+  font-size: 1rem;
   margin-bottom: 1rem;
 }
 
-/* Download Button */
+.form-control:focus {
+  outline: none;
+  border-color: #1e90ff;
+  box-shadow: 0 0 0 2px rgba(30, 144, 255, 0.2);
+}
+
+/* Slider styling (optional, minimal example) */
+.slider-control {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+/* Length Display Styling */
+.length-display {
+  color: white;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+/* Updated Radio Button Styles */
+.options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.option-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  cursor: pointer;
+}
+
+/* Hide native radio input completely */
+input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  height: 0;
+  width: 0;
+}
+
+/* Custom radio circle */
+.radio-custom {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+/* Checked state */
+input[type="radio"]:checked + .radio-custom {
+  border-color: #1e90ff;
+  background: #1e90ff;
+  box-shadow: inset 0 0 0 3px #1a1a1a;
+}
+
+/* Hover state */
+.option-label:hover .radio-custom {
+  border-color: #666;
+}
+
+.generate-button {
+  background: #1e90ff;
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.2s ease;
+}
+
+.generate-button:hover {
+  background: #1c86ee;
+}
+
+.generate-button:disabled {
+  background: #4a4a4a;
+  cursor: not-allowed;
+}
+
+.audio-player {
+  margin-top: 2rem;
+  color: white;
+}
+
+.audio-player h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
 .download-btn {
   display: inline-block;
-  margin-top: 1rem;
-  padding: 0.6rem 1.2rem;
-  background-color: var(--download-button-background); /* Green */
+  padding: 8px 16px;
+  background: #28a745;
   color: white;
   text-decoration: none;
   border-radius: 4px;
-  transition: background-color 0.3s ease;
+  margin-top: 1rem;
 }
 
-.download-btn:hover {
-  background-color: var(--download-button-hover); /* Darker Green */
+.status-message {
+  color: #fff;
+  margin-top: 1rem;
+  font-size: 0.9rem;
 }
 
 /* Responsive Design */
-@media (max-width: 600px) {
-  .podcast-form {
-    padding: 1.5rem;
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column;
   }
-
+  
+  .left-panel,
+  .right-panel {
+    width: 100%;
+    height: auto;
+  }
+  
+  .right-panel {
+    padding: 2rem;
+  }
+  
+  .left-panel {
+    padding: 2rem;
+  }
+  
+  .section-title {
+    font-size: 1.1rem;
+  }
+  
+  .form-control {
+    padding: 10px 14px;
+    font-size: 0.95rem;
+  }
+  
   .generate-button {
-    font-size: 1em;
-    padding: 0.6rem;
+    padding: 12px 20px;
+    font-size: 0.95rem;
   }
+  
+  .right-panel h1 {
+    font-size: 2rem;
+  }
+}
 
-  .download-btn {
-    padding: 0.5rem 1rem;
+/* Gradient Background */
+.gradient-background {
+  background: linear-gradient(300deg, deepskyblue, darkviolet, blue);
+  background-size: 180% 180%;
+  animation: gradient-animation 18s ease infinite;
+}
+
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
   }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Custom Gradient Background */
+.background--custom {
+  background-color: #FFFFFF;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  overflow: hidden;
+  z-index: 0;
+  top: 0;
+  left: 0;
+}
+
+canvas#canvas {
+  z-index: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  --gradient-color-1: #F52DA5; 
+  --gradient-color-2: #2626FF; 
+  --gradient-color-3: #6A2FFF;  
+  --gradient-color-4: #00093B;
+  --gradient-speed: 0.000002;
 }
 </style>

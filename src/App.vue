@@ -118,7 +118,7 @@
       <div class="background--custom">
         <canvas id="canvas" />
       </div>
-      <h1>AI Podcaster</h1>
+      <h1>PocketCast</h1>
     </div>
   </div>
 </template>
@@ -555,8 +555,8 @@ Begin your script now:`;
   --option-hover: #666666;
   --option-checked: #1e90ff;
   --status-color: #ffffff;
-  --download-button-background: #28a745;
-  --download-button-hover: #218838;
+  --download-button-background: #28a745; /* You can remove this if you’re not using it anymore */
+  --download-button-hover: #218838;      /* Same here */
 }
 
 /* Reset and Layout */
@@ -668,7 +668,7 @@ canvas#canvas {
 
 .form-control:focus {
   outline: none;
-  border-color: #1e90ff;
+  border-color: var(--button-background);
   box-shadow: 0 0 0 2px rgba(30, 144, 255, 0.2);
 }
 
@@ -718,8 +718,8 @@ input[type="radio"] {
 }
 
 input[type="radio"]:checked + .radio-custom {
-  border-color: #1e90ff;
-  background: #1e90ff;
+  border-color: var(--button-background);
+  background: var(--button-background);
   box-shadow: inset 0 0 0 3px #1a1a1a;
 }
 
@@ -729,7 +729,7 @@ input[type="radio"]:checked + .radio-custom {
 
 /* Generate Button */
 .generate-button {
-  background: #1e90ff;
+  background: var(--button-background);
   color: white;
   border: none;
   padding: 14px 24px;
@@ -742,11 +742,11 @@ input[type="radio"]:checked + .radio-custom {
 }
 
 .generate-button:hover {
-  background: #1c86ee;
+  background: var(--button-hover);
 }
 
 .generate-button:disabled {
-  background: #4a4a4a;
+  background: var(--button-disabled);
   cursor: not-allowed;
 }
 
@@ -761,14 +761,24 @@ input[type="radio"]:checked + .radio-custom {
   margin-bottom: 1rem;
 }
 
+/* Updated Download Button - matches generate-button */
 .download-btn {
   display: inline-block;
-  padding: 8px 16px;
-  background: #28a745;
+  background: var(--button-background);
   color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
   text-decoration: none;
-  border-radius: 4px;
-  margin-top: 1rem;
+  margin-top: 1rem; /* Keep spacing if desired */
+  transition: background 0.2s ease;
+}
+
+.download-btn:hover {
+  background: var(--button-hover);
 }
 
 /* Status Message */

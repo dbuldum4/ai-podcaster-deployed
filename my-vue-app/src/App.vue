@@ -22,21 +22,43 @@
       <!-- Choose a Length Section -->
       <div class="form-section">
         <h2 class="section-title">Choose a Length</h2>
-        <div class="form-group length-selector">
-          <label class="length-option">
+        <div class="form-group options-group">
+          <label class="option-label">
             <input type="radio" v-model="podcastLength" value="short" />
             <span class="radio-custom"></span>
             Short
           </label>
-          <label class="length-option">
+          <label class="option-label">
             <input type="radio" v-model="podcastLength" value="medium" />
             <span class="radio-custom"></span>
             Medium
           </label>
-          <label class="length-option">
+          <label class="option-label">
             <input type="radio" v-model="podcastLength" value="long" />
             <span class="radio-custom"></span>
             Long
+          </label>
+        </div>
+      </div>
+
+      <!-- Choose a Persona Section -->
+      <div class="form-section">
+        <h2 class="section-title">Choose a Persona</h2>
+        <div class="form-group options-group">
+          <label class="option-label">
+            <input type="radio" v-model="selectedPersona" value="trump" />
+            <span class="radio-custom"></span>
+            Trump
+          </label>
+          <label class="option-label">
+            <input type="radio" v-model="selectedPersona" value="professor" />
+            <span class="radio-custom"></span>
+            Professor
+          </label>
+          <label class="option-label">
+            <input type="radio" v-model="selectedPersona" value="best_friend" />
+            <span class="radio-custom"></span>
+            Best Friend
           </label>
         </div>
       </div>
@@ -65,6 +87,7 @@
         class="button generate-button"
         aria-label="Generate Audio Story"
       >
+        <span v-if="loading" class="spinner"></span>
         {{ loading ? 'Generating...' : 'Generate' }}
       </button>
     </form>
@@ -91,17 +114,31 @@ export default {
   name: 'App',
   data() {
     return {
+      // OAuth 2.0 Credentials
       geminiKey: CONFIG.GEMINI_KEY,
-      ttsKey: CONFIG.TTS_KEY,
-      quotaProjectId: 'casehack', // Google Cloud project ID
-      audioSrc: '',               // Source URL for the audio player
-      loading: false,             // Loading state for button and processes
-      status: '',                 // Status messages for user feedback
+      clientId: CONFIG.CLIENT_ID,
+      clientSecret: CONFIG.CLIENT_SECRET,
+      refreshToken: CONFIG.REFRESH_TOKEN,
+
+      // Token Management
+      accessToken: '',
+      expiresAt: null, // Timestamp when the access token expires
 
       // Podcast form data
       podcastTopic: '',
       podcastLength: 'medium',    // Default to "medium"
       selectedVoice: null,        // User-selected voice
+      selectedPersona: 'trump',   // Default selection
+
+      // Persona Styles Mapping
+      personaStyles: {
+        trump: "Donald Trump",
+        professor: "a knowledgeable professor",
+        best_friend: "a friendly best friend"
+      },
+
+      // Define your bucket name here
+      bucketName: 'podcaster-bucket', // Replace with your actual bucket name
 
       // List of available voices with accents and genders
       voices: [
@@ -113,30 +150,81 @@ export default {
         { name: 'en-AU-Journey-F', displayName: 'Journey F', languageCode: 'en-AU', ssmlGender: 'FEMALE' },
       ],
 
-      // Used internally to send to Gemini
-      userPrompt: '',
+      // Status messages and loading state
+      loading: false,
+      status: '',
+
+      // Audio URL received from TTS
+      audioSrc: '',
+
+      // Correct quotaProjectId
+      quotaProjectId: '287269128315', // Replace with your actual project ID
     };
   },
   mounted() {
-    // No need to check window.CONFIG anymore
-    if (!this.geminiKey || !this.ttsKey) {
-      console.error('API keys are not defined. Please set them in config.js or environment variables.');
-      this.status = 'Error: API keys are not defined.';
-    }
+    // Initialize by refreshing the access token
+    this.refreshAccessToken();
   },
   methods: {
+    /**
+     * Refreshes the OAuth 2.0 access token using the refresh token.
+     */
+    async refreshAccessToken() {
+      const tokenUrl = 'https://oauth2.googleapis.com/token';
+      const params = new URLSearchParams();
+      params.append('client_id', this.clientId);
+      params.append('client_secret', this.clientSecret);
+      params.append('refresh_token', this.refreshToken);
+      params.append('grant_type', 'refresh_token');
+
+      try {
+        const response = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Failed to refresh access token: ${errorData.error}`);
+        }
+
+        const data = await response.json();
+        this.accessToken = data.access_token;
+        const expiresIn = data.expires_in; // Typically 3600 seconds
+        this.expiresAt = Date.now() + expiresIn * 1000;
+
+        console.log('Access token refreshed successfully.');
+      } catch (error) {
+        console.error('Error refreshing access token:', error);
+        this.status = `Error refreshing access token: ${error.message}`;
+      }
+    },
+
+    /**
+     * Ensures that a valid access token is available.
+     * Refreshes the token if it has expired or is about to expire.
+     */
+    async ensureAccessToken() {
+      const bufferTime = 60 * 1000; // 1 minute buffer
+      if (!this.accessToken || (this.expiresAt && Date.now() + bufferTime >= this.expiresAt)) {
+        await this.refreshAccessToken();
+      }
+    },
+
     /**
      * Deletes all files from the specified Google Cloud Storage bucket.
      */
     async deleteAllFiles() {
-      const accessToken = this.ttsKey;
-      const bucketName = 'podcaster-bucket'; // Replace with your bucket name
-      
       try {
         this.status = 'Deleting all files...';
-        const listResponse = await fetch(`https://storage.googleapis.com/storage/v1/b/${bucketName}/o`, {
+        await this.ensureAccessToken();
+
+        const listResponse = await fetch(`https://storage.googleapis.com/storage/v1/b/${this.bucketName}/o`, {
           headers: {
-            'Authorization': `Bearer ${accessToken}`
+            'Authorization': `Bearer ${this.accessToken}`
           }
         });
 
@@ -155,11 +243,11 @@ export default {
 
         for (const item of items) {
           const deleteResponse = await fetch(
-            `https://storage.googleapis.com/storage/v1/b/${bucketName}/o/${encodeURIComponent(item.name)}`, 
+            `https://storage.googleapis.com/storage/v1/b/${this.bucketName}/o/${encodeURIComponent(item.name)}`, 
             {
               method: 'DELETE',
               headers: {
-                'Authorization': `Bearer ${accessToken}`
+                'Authorization': `Bearer ${this.accessToken}`
               }
             }
           );
@@ -219,15 +307,11 @@ export default {
      * @param {string} objectName - The name of the audio object in GCS.
      */
     async getFileFromGCS(objectName) {
-      const accessToken = this.ttsKey;
-      const bucketName = "podcaster-bucket";
-      const url = `https://storage.googleapis.com/${bucketName}/${objectName}`;
-
       try {
         this.status = 'Fetching audio from GCS...';
-        const response = await fetch(url, {
+        const response = await fetch(`https://storage.googleapis.com/${this.bucketName}/${objectName}`, {
           headers: {
-            "Authorization": `Bearer ${accessToken}`
+            "Authorization": `Bearer ${this.accessToken}`
           }
         });
 
@@ -250,31 +334,33 @@ export default {
      * Initiates the Text-to-Speech process to convert text to audio.
      */
     async speakText(text) {
-      const accessToken = this.ttsKey;
-      const timestamp = Date.now();
-      const objectName = `tts-output-${timestamp}.wav`;
-      const outputGcsUri = `gs://podcaster-bucket/${objectName}`;
-
-      const requestBody = {
-        parent: "projects/287269128315/locations/global",
-        input: {
-          text: text
-        },
-        audio_config: {
-          audio_encoding: "LINEAR16"
-        },
-        voice: {
-          language_code: this.selectedVoice.languageCode,
-          name: this.selectedVoice.name,
-          ssml_gender: this.selectedVoice.ssmlGender
-        },
-        "output_gcs_uri": outputGcsUri
-      };
-
       try {
         this.status = 'Generating audio...';
+        await this.ensureAccessToken();
+
+        const accessToken = this.accessToken;
+        const timestamp = Date.now();
+        const objectName = `tts-output-${timestamp}.wav`;
+        const outputGcsUri = `gs://${this.bucketName}/${objectName}`;
+
+        const requestBody = {
+          parent: `projects/${this.quotaProjectId}/locations/global`,
+          input: {
+            text: text
+          },
+          audio_config: {
+            audio_encoding: "LINEAR16"
+          },
+          voice: {
+            language_code: this.selectedVoice.languageCode,
+            name: this.selectedVoice.name,
+            ssml_gender: this.selectedVoice.ssmlGender
+          },
+          "output_gcs_uri": outputGcsUri
+        };
+
         const response = await fetch(
-          "https://texttospeech.googleapis.com/v1beta1/projects/287269128315/locations/global:synthesizeLongAudio",
+          `https://texttospeech.googleapis.com/v1beta1/projects/${this.quotaProjectId}/locations/global:synthesizeLongAudio`,
           {
             method: "POST",
             headers: {
@@ -327,14 +413,21 @@ export default {
           throw new Error("Please select a voice for your podcast.");
         }
 
-        // Build a user prompt based on topic and chosen length
-        this.userPrompt = `Create a ${this.podcastLength} podcast script about: ${this.podcastTopic}. You should only output the podcast, no other extra text. There should be no sound effects, or introduction music queues. Only content and text. I also want it in the style of Donald Trump.`;
+        // Validate persona selection
+        if (!this.selectedPersona) {
+          throw new Error("Please select a persona for your podcast.");
+        }
+
+        // Build a user prompt based on topic, chosen length, and selected persona
+        this.status = 'Generating content with Gemini...';
+        const personaStyle = this.personaStyles[this.selectedPersona] || "Donald Trump"; // Fallback to Trump
+        const userPrompt = `Create a ${this.podcastLength} podcast script about: ${this.podcastTopic}. You should only output the podcast, no other extra text. There should be no sound effects, or introduction music queues. Only content and text. I also want it in the style of ${personaStyle}.`;
 
         // Prepare request body for Gemini
         const requestBody = {
           contents: [
             {
-              parts: [{ text: this.userPrompt }]
+              parts: [{ text: userPrompt }]
             }
           ]
         };
@@ -376,112 +469,123 @@ export default {
 </script>
 
 <style>
+/* General Styles */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --background-color: #121212;
+  --form-background: #1e1e1e;
+  --text-color: #ffffff;
+  --input-background: #2c2c2c;
+  --input-border: #444444;
+  --button-background: #1e90ff;
+  --button-hover: #1c86ee;
+  --button-disabled: #6c757d;
+  --option-background: #555555;
+  --option-hover: #666666;
+  --option-checked: #1e90ff;
+  --spinner-border: rgba(255, 255, 255, 0.3);
+  --spinner-color: #ffffff;
+  --status-color: #ffffff;
+  --download-button-background: #28a745;
+  --download-button-hover: #218838;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  padding: 0;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-width: 320px;
   min-height: 100vh;
 }
 
+a {
+  font-weight: 500;
+  color: #1e90ff; /* DodgerBlue */
+  text-decoration: none;
+}
+
+a:hover {
+  color: #63b3ed; /* Lighter blue on hover */
+}
+
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-  margin-bottom: 1.5rem;
+  font-size: 2.5em;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.8em 1.5em;
+  border-radius: 4px;
+  border: none;
+  padding: 0.75em 1.5em;
   font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s, border-color 0.25s;
+  transition: background-color 0.3s, opacity 0.3s;
 }
 
-button:hover {
-  border-color: #646cff;
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+/* Spinner Animation */
+.spinner {
+  border: 4px solid var(--spinner-border);
+  border-top: 4px solid var(--spinner-color);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
 }
 
-#app {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-/* Light-mode overrides */
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
 
 <style scoped>
+/* Container */
 .container {
   width: 100%;
+  max-width: 600px;
+  padding: 2rem;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 /* Podcast Form Styling */
 .podcast-form {
-  background-color: #2c2c2c; /* Dark background */
-  color: #fff;              /* White text */
-  padding: 1.5rem 2rem;     /* Reduced top and bottom padding */
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: var(--form-background); /* Dark form background */
+  color: var(--text-color);              /* White text */
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
   margin-bottom: 2rem;
 }
 
 /* Form Sections */
 .form-section {
   margin-bottom: 1.5rem;
+  text-align: left;
 }
 
 /* Section Titles */
 .section-title {
   font-size: 1.2em;
-  margin-bottom: 0.8rem;
-  font-weight: 600;
+  margin-bottom: 0.5rem;
+  border-bottom: 2px solid #333333;
+  padding-bottom: 0.3rem;
 }
 
 /* Form Group */
@@ -492,43 +596,45 @@ button:focus-visible {
 
 /* Input Field */
 .form-control {
-  padding: 0.8rem 1rem;
+  padding: 0.75rem 1rem;
   font-size: 1rem;
-  border-radius: 6px;
-  border: 1px solid #555;
-  background-color: #3a3a3a;
-  color: #fff;
+  border-radius: 4px;
+  border: 1px solid var(--input-border);
+  background-color: var(--input-background);
+  color: var(--text-color);
   transition: border-color 0.3s, background-color 0.3s;
 }
 
 .form-control:focus {
-  border-color: #28a745;
+  border-color: var(--button-background); /* DodgerBlue focus */
   outline: none;
-  background-color: #4a4a4a;
+  background-color: #3a3a3a;
 }
 
-/* Length Selector */
-.length-selector {
+/* Options Group (Radio Buttons) */
+.options-group {
   display: flex;
   flex-direction: column;
 }
 
-.length-option {
+/* Option Label */
+.option-label {
   display: flex;
   align-items: center;
   margin-bottom: 0.6rem;
   cursor: pointer;
   position: relative;
-  padding-left: 1.5rem;
+  padding-left: 2rem;
   user-select: none;
   font-size: 1rem;
 }
 
-.length-option:last-child {
+.option-label:last-child {
   margin-bottom: 0;
 }
 
-.length-option input[type="radio"] {
+/* Radio Input */
+.option-label input[type="radio"] {
   position: absolute;
   left: 0;
   top: 50%;
@@ -537,45 +643,51 @@ button:focus-visible {
   cursor: pointer;
 }
 
-.length-option .radio-custom {
+/* Custom Radio Button */
+.radio-custom {
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  height: 16px;
-  width: 16px;
-  background-color: #555;
+  height: 18px;
+  width: 18px;
+  background-color: var(--option-background);
   border-radius: 50%;
   transition: background-color 0.3s, border 0.3s;
 }
 
-.length-option input[type="radio"]:checked ~ .radio-custom {
-  background-color: #28a745;
-  border: 2px solid #fff;
+/* Checked Radio */
+.option-label input[type="radio"]:checked ~ .radio-custom {
+  background-color: var(--option-checked);
+  border: 2px solid var(--text-color);
 }
 
-.length-option:hover .radio-custom {
-  background-color: #666;
+/* Hover Radio */
+.option-label:hover .radio-custom {
+  background-color: var(--option-hover);
 }
 
 /* Generate Button */
 .generate-button {
-  background-color: #28a745; /* Green */
-  color: white;
+  background-color: var(--button-background); /* DodgerBlue */
+  color: var(--text-color);
   width: 100%;
-  padding: 0.8rem;
+  padding: 0.75rem 1rem;
   font-size: 1.1em;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .generate-button:hover:not(:disabled) {
-  background-color: #218838; /* Darker Green */
+  background-color: var(--button-hover); /* Slightly darker blue */
 }
 
 .generate-button:disabled {
-  background-color: #6c757d; /* Gray */
+  background-color: var(--button-disabled); /* Gray */
   cursor: not-allowed;
 }
 
@@ -583,26 +695,28 @@ button:focus-visible {
 .status-message {
   margin-top: 1rem;
   font-weight: bold;
-  color: #fff;
+  color: var(--status-color);
 }
 
 /* Audio Player */
 .audio-player {
   margin-top: 2rem;
-  background-color: #2c2c2c;
+  background-color: var(--form-background);
   padding: 1.5rem;
   border-radius: 8px;
+  color: var(--text-color);
 }
 
 .audio-player h2 {
   margin-bottom: 1rem;
 }
 
+/* Download Button */
 .download-btn {
   display: inline-block;
   margin-top: 1rem;
   padding: 0.6rem 1.2rem;
-  background-color: #007bff; /* Blue */
+  background-color: var(--download-button-background); /* Green */
   color: white;
   text-decoration: none;
   border-radius: 4px;
@@ -610,10 +724,10 @@ button:focus-visible {
 }
 
 .download-btn:hover {
-  background-color: #0056b3; /* Darker Blue */
+  background-color: var(--download-button-hover); /* Darker Green */
 }
 
-/* Responsive Adjustments */
+/* Responsive Design */
 @media (max-width: 600px) {
   .podcast-form {
     padding: 1.5rem;
